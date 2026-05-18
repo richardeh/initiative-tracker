@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1778718540454,
+    "name": "Avery",
+    "order": 0,
+    "statuses": []
+  },
+  {
+    "id": 1778718541112,
+    "name": "V",
+    "order": 1,
+    "statuses": []
+  },
+  {
+    "id": 1778718543086,
+    "name": "Sahuagin Captain",
+    "order": 4,
+    "statuses": []
+  },
+  {
+    "id": 1778718541547,
+    "name": "Sahuagin #2",
+    "order": 3,
+    "statuses": []
+  },
+  {
+    "id": 1778718541354,
+    "name": "Sahuagin #1",
+    "order": 2,
+    "statuses": []
+  }
+]

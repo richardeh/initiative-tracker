@@ -73,6 +73,102 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
 
+        .btn-save {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .btn-save:hover {
+            background-color: #1976D2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-load {
+            background-color: #FF9800;
+            color: white;
+        }
+
+        .btn-load:hover {
+            background-color: #F57C00;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-delete {
+            background-color: #9C27B0;
+            color: white;
+        }
+
+        .btn-delete:hover {
+            background-color: #7B1FA2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-rename {
+            background-color: #607D8B;
+            color: white;
+        }
+
+        .btn-rename:hover {
+            background-color: #455A64;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+            z-index: 1000;
+            border-radius: 5px;
+            top: 100%;
+            left: 0;
+            margin-top: 5px;
+        }
+
+        .dropdown-content.show {
+            display: block;
+        }
+
+        .dropdown-item {
+            padding: 12px 16px;
+            text-decoration: none;
+            display: block;
+            color: #333;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            transition: background-color 0.2s ease;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f5f5f5;
+        }
+
+        .dropdown-item:last-child {
+            border-bottom: none;
+        }
+
+        .dropdown-item.empty {
+            color: #999;
+            font-style: italic;
+            cursor: default;
+        }
+
+        .dropdown-item.empty:hover {
+            background-color: white;
+        }
+
         .grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -296,6 +392,25 @@
             <div class="controls">
                 <button class="btn-add" onclick="addTile()">+ Add Tile</button>
                 <button class="btn-clear" onclick="clearAllTiles()">Clear All</button>
+                <button class="btn-save" onclick="saveCollection()">💾 Save Collection</button>
+                <div class="dropdown">
+                    <button class="btn-load" onclick="toggleDropdown('loadDropdown')">📁 Load Collection</button>
+                    <div id="loadDropdown" class="dropdown-content">
+                        <!-- Collections will be populated here -->
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <button class="btn-rename" onclick="toggleDropdown('renameDropdown')">✏️ Rename Collection</button>
+                    <div id="renameDropdown" class="dropdown-content">
+                        <!-- Collections will be populated here -->
+                    </div>
+                </div>
+                <div class="dropdown">
+                    <button class="btn-delete" onclick="toggleDropdown('deleteDropdown')">🗑️ Delete Collection</button>
+                    <div id="deleteDropdown" class="dropdown-content">
+                        <!-- Collections will be populated here -->
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -307,7 +422,7 @@
         </div>
 
         <div class="footer">
-            <p>💾 Your tiles are automatically saved</p>
+            <p>💾 Your tiles are automatically saved locally • 📁 Save collections to server</p>
         </div>
     </div>
 
@@ -322,6 +437,7 @@
         let offsetY = 0;
         let lastTapTime = 0;
         const DOUBLE_TAP_THRESHOLD = 300;
+        let lastLoadedCollection = null; // Track the last loaded collection name
 
         // Load tiles from localStorage on page load
         function loadTiles() {
@@ -356,6 +472,9 @@
                 statuses: []
             };
             tiles.push(newTile);
+            if (tiles.length === 1) {
+                lastLoadedCollection = null; // Reset if this is the first tile (new content)
+            }
             saveTiles();
             renderTiles();
             // Auto-focus the new tile for editing
@@ -380,10 +499,213 @@
             if (tiles.length === 0) return;
             if (confirm('Are you sure you want to clear all tiles?')) {
                 tiles = [];
+                lastLoadedCollection = null; // Reset loaded collection since we're starting fresh
                 saveTiles();
                 renderTiles();
             }
         }
+
+        // Save collection
+        async function saveCollection() {
+            if (tiles.length === 0) {
+                alert('No tiles to save!');
+                return;
+            }
+
+            let collectionName = null;
+
+            // If we loaded a collection and haven't saved yet, offer to overwrite it
+            if (lastLoadedCollection && !confirm('Save as a new collection? (Cancel to overwrite the loaded collection)')) {
+                collectionName = lastLoadedCollection;
+                if (!confirm(`Overwrite "${collectionName}"?`)) {
+                    return;
+                }
+            } else {
+                // Prompt for new collection name
+                collectionName = prompt('Enter collection name:');
+                if (!collectionName || !collectionName.trim()) return;
+                collectionName = collectionName.trim();
+
+                // Check if collection already exists
+                const exists = await collectionExists(collectionName);
+                if (exists && !confirm(`Collection "${collectionName}" already exists. Overwrite it?`)) {
+                    return;
+                }
+            }
+
+            try {
+                const response = await fetch('/api/collections', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: collectionName, tiles })
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert('Collection saved successfully!');
+                    lastLoadedCollection = collectionName; // Update last loaded collection
+                    populateDropdowns(); // Refresh dropdowns
+                } else {
+                    alert('Failed to save collection: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error saving collection: ' + error.message);
+            }
+        }
+
+        // Check if a collection exists
+        async function collectionExists(name) {
+            try {
+                const response = await fetch('/api/collections');
+                const collections = await response.json();
+                return collections.includes(name);
+            } catch (error) {
+                console.error('Error checking collection existence:', error);
+                return false;
+            }
+        }
+
+        // Load collection
+        async function loadCollection(collectionName) {
+            try {
+                const loadResponse = await fetch(`/api/collections/${encodeURIComponent(collectionName)}`);
+                if (loadResponse.status === 404) {
+                    alert('Collection not found!');
+                    return;
+                }
+                const loadedTiles = await loadResponse.json();
+                tiles = loadedTiles;
+                activeTileId = null;
+                saveTiles();
+                renderTiles();
+                lastLoadedCollection = collectionName; // Track the loaded collection
+                alert('Collection loaded successfully!');
+                toggleDropdown('loadDropdown'); // Close dropdown
+            } catch (error) {
+                alert('Error loading collection: ' + error.message);
+            }
+        }
+
+        // Delete collection
+        async function deleteCollection(collectionName) {
+            if (!confirm(`Are you sure you want to delete the collection "${collectionName}"?`)) return;
+
+            try {
+                const deleteResponse = await fetch(`/api/collections/${encodeURIComponent(collectionName)}`, {
+                    method: 'DELETE'
+                });
+                const result = await deleteResponse.json();
+                if (result.success) {
+                    alert('Collection deleted successfully!');
+                    toggleDropdown('deleteDropdown'); // Close dropdown
+                    populateDropdowns(); // Refresh dropdowns
+                } else {
+                    alert('Failed to delete collection: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error deleting collection: ' + error.message);
+            }
+        }
+
+        // Rename collection
+        async function renameCollection(oldName) {
+            const newName = prompt(`Enter new name for "${oldName}":`);
+            if (!newName || !newName.trim()) return;
+
+            try {
+                const renameResponse = await fetch(`/api/collections/${encodeURIComponent(oldName)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newName: newName.trim() })
+                });
+                const result = await renameResponse.json();
+                if (result.success) {
+                    alert('Collection renamed successfully!');
+                    toggleDropdown('renameDropdown'); // Close dropdown
+                    populateDropdowns(); // Refresh dropdowns
+                } else {
+                    alert('Failed to rename collection: ' + result.error);
+                }
+            } catch (error) {
+                alert('Error renaming collection: ' + error.message);
+            }
+        }
+
+        // Toggle dropdown visibility
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            const isVisible = dropdown.classList.contains('show');
+
+            // Close all dropdowns first
+            document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
+
+            // Open the clicked dropdown if it wasn't already open
+            if (!isVisible) {
+                dropdown.classList.add('show');
+                populateDropdowns(); // Refresh content when opening
+            }
+        }
+
+        // Populate all dropdowns with collections
+        async function populateDropdowns() {
+            try {
+                const response = await fetch('/api/collections');
+                const collections = await response.json();
+
+                // Populate load dropdown
+                const loadDropdown = document.getElementById('loadDropdown');
+                loadDropdown.innerHTML = '';
+                if (collections.length === 0) {
+                    loadDropdown.innerHTML = '<div class="dropdown-item empty">No collections found</div>';
+                } else {
+                    collections.forEach(name => {
+                        const item = document.createElement('div');
+                        item.className = 'dropdown-item';
+                        item.textContent = name;
+                        item.onclick = () => loadCollection(name);
+                        loadDropdown.appendChild(item);
+                    });
+                }
+
+                // Populate rename dropdown
+                const renameDropdown = document.getElementById('renameDropdown');
+                renameDropdown.innerHTML = '';
+                if (collections.length === 0) {
+                    renameDropdown.innerHTML = '<div class="dropdown-item empty">No collections found</div>';
+                } else {
+                    collections.forEach(name => {
+                        const item = document.createElement('div');
+                        item.className = 'dropdown-item';
+                        item.textContent = name;
+                        item.onclick = () => renameCollection(name);
+                        renameDropdown.appendChild(item);
+                    });
+                }
+
+                // Populate delete dropdown
+                const deleteDropdown = document.getElementById('deleteDropdown');
+                deleteDropdown.innerHTML = '';
+                if (collections.length === 0) {
+                    deleteDropdown.innerHTML = '<div class="dropdown-item empty">No collections found</div>';
+                } else {
+                    collections.forEach(name => {
+                        const item = document.createElement('div');
+                        item.className = 'dropdown-item';
+                        item.textContent = name;
+                        item.onclick = () => deleteCollection(name);
+                        deleteDropdown.appendChild(item);
+                    });
+                }
+            } catch (error) {
+                console.error('Error populating dropdowns:', error);
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!event.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
+            }
+        });
 
         // Edit tile name
         function editTileName(id) {
