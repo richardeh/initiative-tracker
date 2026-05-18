@@ -12,15 +12,15 @@
     "statuses": []
   },
   {
-    "id": 1778718543086,
-    "name": "Sahuagin Captain",
-    "order": 4,
-    "statuses": []
-  },
-  {
     "id": 1778718541547,
     "name": "Sahuagin #2",
     "order": 3,
+    "statuses": []
+  },
+  {
+    "id": 1778718543086,
+    "name": "Sahuagin Captain",
+    "order": 4,
     "statuses": []
   },
   {
